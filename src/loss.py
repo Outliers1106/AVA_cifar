@@ -1,7 +1,5 @@
-import numpy as np
 import mindspore.nn as nn
 import mindspore
-from mindspore.common.tensor import Tensor
 from mindspore.ops import operations as P
 
 
@@ -43,12 +41,11 @@ class LossNet(nn.Cell):
         mat_aux_z_x = self.exp(self.matmul(z_aux, self.t(x, perm) / self.temp))
         mat_aux_z_y = self.exp(self.matmul(z_aux, self.t(y, perm) / self.temp))
 
-
-        loss_mutual = self.mean(-2*self.log(self.diag_part_new(mat_x_y, batch_size) / (
-                    1e-10 + self.sum_keep_dim(mat_x_y, 1) - self.diag_part_new(mat_x_y, batch_size) + self.sum_keep_dim(
-                mat_x_x, 1) - self.diag_part_new(mat_x_x, batch_size) + self.sum_keep_dim(mat_y_y,
-                                                                                          1) - self.diag_part_new(
-                mat_y_y, batch_size))))
+        loss_mutual = self.mean(-2 * self.log(self.diag_part_new(mat_x_y, batch_size) / (
+                1e-10 + self.sum_keep_dim(mat_x_y, 1) - self.diag_part_new(mat_x_y, batch_size) + self.sum_keep_dim(
+            mat_x_x, 1) - self.diag_part_new(mat_x_x, batch_size) + self.sum_keep_dim(mat_y_y,
+                                                                                      1) - self.diag_part_new(
+            mat_y_y, batch_size))))
 
         loss_aux_x = self.mean(-
                                self.log(

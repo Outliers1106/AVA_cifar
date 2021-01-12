@@ -1,11 +1,12 @@
 import math
 
+
 def constant_lr(init_lr, total_epochs, steps_per_epoch):
     lr_each_step = [init_lr] * total_epochs * steps_per_epoch
     return lr_each_step
 
 
-def cosine_lr(init_lr, total_epochs, steps_per_epoch, mode='epoch', start_from_epoch=0, warmup_epoch = 0):
+def cosine_lr(init_lr, total_epochs, steps_per_epoch, mode='epoch', start_from_epoch=0, warmup_epoch=0):
     """
     0.5+0.5*cos(k*pi/K)
     """
@@ -21,14 +22,15 @@ def cosine_lr(init_lr, total_epochs, steps_per_epoch, mode='epoch', start_from_e
     lr_warm_up_step = []
     if warmup_epoch > 0:
         for i in range(warmup_epoch):
-            tmp_lr = init_lr * (i+1) / warmup_epoch
+            tmp_lr = init_lr * (i + 1) / warmup_epoch
             lr_warm_up_step = lr_warm_up_step + [tmp_lr] * steps_per_epoch
 
     lr_each_step = lr_warm_up_step + lr_each_step
     return lr_each_step[start_from_epoch * steps_per_epoch:]
 
 
-def step_cosine_lr(init_lr, total_epochs, epoch_stage, steps_per_epoch, mode='epoch', start_from_epoch=0, warmup_epoch=0):
+def step_cosine_lr(init_lr, total_epochs, epoch_stage, steps_per_epoch, mode='epoch', start_from_epoch=0,
+                   warmup_epoch=0):
     """
     generate learning rate array by step cosine lr
     if mode = 'epoch'
@@ -82,19 +84,3 @@ def step_cosine_lr(init_lr, total_epochs, epoch_stage, steps_per_epoch, mode='ep
 
     lr_each_step = lr_warm_up_step + lr_each_step
     return lr_each_step[start_from_epoch * steps_per_epoch:]
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    # lr_each_step_epoch = step_cosine_lr(0.03, 200, [80, 120], 391, 'epoch')
-    # lr_each_step_step = step_cosine_lr(0.03, 200, [80, 120], 391, 'step')
-    # assert len(lr_each_step_step) == len(lr_each_step_epoch)
-    lr_each_step_epoch = cosine_lr(0.03, 200,  391, 'epoch',warmup_epoch=10)
-    lr_each_step_step = cosine_lr(0.03, 200, 391, 'step',warmup_epoch=10)
-    plt.figure()
-    plt.subplot(121)
-    plt.plot(lr_each_step_epoch)
-    plt.subplot(122)
-    plt.plot(lr_each_step_step)
-    plt.show()

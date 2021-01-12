@@ -15,7 +15,7 @@ def get_config():
         # base setting
         "description": "Your description for training",
         "prefix": prefix,
-        "time_prefix":time_prefix,
+        "time_prefix": time_prefix,
         "net_work": "resnet18",
         "low_dims": 128,
         "use_MLP": False,
@@ -31,7 +31,7 @@ def get_config():
         "momentum": 0.9,
         "weight_decay": 5e-4,
         "loss_scale": 1,
-        "sigma":0.1,
+        "sigma": 0.1,
 
         # trainer
         "batch_size": 128,
@@ -40,46 +40,10 @@ def get_config():
         "lr_schedule": "cosine_lr",
         "lr_mode": "epoch",
         "warmup_epoch": 0,
-        "eval_pause":10
+        "eval_pause": 1000
     })
     return config
 
-def get_config_linear():
-    time_prefix = time.strftime("-%Y%m%d-%H%M%S", time.localtime())
-    prefix = "AVA-cifar10-linear"
-    config = ed({
-        # base setting
-        "description": "test checkpoint bz1024",
-        "prefix": prefix,
-        "time_prefix": time_prefix,
-        "net_work": "resnet18",
-        "low_dims": 128,
-        "mid_dims": 512,
-
-        # save
-        "save_checkpoint": True,
-        "save_checkpoint_epochs": 1,
-        "keep_checkpoint_max": 5,
-
-        # dataset
-        "num_classes":10,
-
-        # optimizer
-        "base_lr": 0.01,
-        "type": "Adam",
-        "beta1": 0.5,
-        "beta2": 0.999,
-        "weight_decay": 0,
-        "loss_scale": 1,
-
-        # trainer
-        "batch_size": 128,
-        "epochs": 50,
-        "epoch_stage": [30, 20],
-        "lr_schedule": "cosine_lr",
-        "lr_mode": "epoch"
-    })
-    return config
 
 def save_config(paths, config, args_opt):
     if not isinstance(paths, list):

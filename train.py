@@ -29,7 +29,7 @@ de.config.set_seed(123)
 
 parser = argparse.ArgumentParser(description="AVA training")
 parser.add_argument("--run_distribute", type=bool, default=False, help="Run distribute, default is false.")
-parser.add_argument("--device_id", type=int, default=5, help="Device id, default is 0.")
+parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
 parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default is 1.")
 parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default is 0.")
 parser.add_argument("--train_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train", help="training dataset directory")

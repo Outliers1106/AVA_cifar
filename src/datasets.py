@@ -1,24 +1,12 @@
 import mindspore.dataset as ds
-from optparse import OptionParser
 import os
-import PIL
-from PIL import Image, ImageEnhance, ImageOps, ImageFilter
-
-import random
 from mindspore.common import dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 from src.RandAugment import RandAugment
 from src.autoaugment import CIFAR10Policy, SVHNPolicy
-from src.GaussianBlur import GaussianBlur
-#import mindspore.dataset.transforms.vision.py_transforms as transforms
 import mindspore.dataset.vision.py_transforms as transforms
 from mindspore.dataset.transforms.py_transforms import Compose
 import numpy as np
-
-
-# random.seed(1)
-# np.random.seed(1)
-# ds.config.set_seed(1)
 
 
 class CIFAR10Dataset():
@@ -38,8 +26,6 @@ class CIFAR10Dataset():
                     transforms.RandomColorAdjust(0.4, 0.4, 0.4, 0.4),
                     transforms.RandomGrayscale(prob=0.2),
                     transforms.RandomHorizontalFlip(),
-                    # GaussianBlur(kernel_size=int(0.1 * 32)),
-                    # GaussianBlur(),
                     transforms.ToTensor(),
                     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                 ])
@@ -80,7 +66,7 @@ class CIFAR10Dataset():
 
         ds_ = ds_.map(input_columns=["image"], operations=self.trsfm)
         typecast_op = C.TypeCast(mstype.int32)
-        ds_ = ds_.map(input_columns="label", operations=typecast_op)
+        ds_ = ds_.map(input_columns=["label"], operations=typecast_op)
         return ds_
 
 
@@ -97,19 +83,11 @@ def makeup_train_dataset(ds1, ds2, ds3, batchsize, epoch):
     # to keep the order : data3 data2 data1 label
 
     # ds_new = ds_new.shuffle(ds_new.get_dataset_size())
-    print("dataset batchsize:",batchsize)
+    print("dataset batchsize:", batchsize)
     ds_new = ds_new.batch(batchsize)
     ds_new = ds_new.repeat(epoch)
 
     print("batch_size:", ds_new.get_batch_size(), "batch_num:", ds_new.get_dataset_size())
-
-    # for data in ds_new.create_dict_iterator():
-    #     print("new dataset:")
-    #     print(data.keys())
-    #     for key,value in data.items():
-    #         print("key:",key)
-    #
-    #     break
 
     return ds_new
 
@@ -168,89 +146,8 @@ def get_train_test_dataset(train_data_dir, test_data_dir, batchsize, epoch=1):
                                                     operations=func0, column_order=cols_order)
     cifar10_train_dataset = cifar10_train_dataset.map(input_columns=input_cols, output_columns=output_cols,
                                                       operations=func1, column_order=cols_order)
-    # cifar10_train_dataset = cifar10_train_dataset.shuffle(cifar10_train_dataset.get_dataset_size())
-    # cifar10_test_dataset = cifar10_test_dataset.shuffle(cifar10_test_dataset.get_dataset_size())
     concat_dataset = cifar10_train_dataset + cifar10_test_dataset
     concat_dataset = concat_dataset.batch(batchsize)
     concat_dataset = concat_dataset.repeat(epoch)
 
     return concat_dataset
-
-
-# if __name__ == "__main__":
-#     TRAIN_DATA_DIR = "/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train"
-#     train_dataset = get_train_dataset(TRAIN_DATA_DIR,128,200)
-#     for data in train_dataset.create_dict_iterator():
-#         print(data['data1'].shape) # (128,3,32,32)
-#         print(data['data2'].shape) # (128,3,32,32)
-#         print(data['data3'].shape) # (128,3,32,32)
-#         print(data['label'].shape) # (128,)
-#         print(data.keys())
-#         break
-
-
-if __name__ == "__main__":
-    '''环境变量参数'''
-    use_moxing = True
-    if use_moxing:
-        import moxing as mox
-
-        # define local data path
-        local_data_path = '/cache/data'
-
-        mox.file.copy_parallel(src_url='s3://tuyanlun/data/', dst_url=local_data_path)
-        # img = PIL.Image.open(os.path.join(local_data_path, 'GUI.png'))
-        # print(img)
-        TRAIN_DATA_DIR = os.path.join(local_data_path, "cifar10/cifar-10-batches-bin/train")
-        TEST_DATA_DIR = os.path.join(local_data_path, "cifar10/cifar-10-batches-bin/test")
-    else:
-        TRAIN_DATA_DIR = '/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train'
-        TEST_DATA_DIR = '/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/test'
-
-    cifar10_train_dataset = get_train_dataset(TRAIN_DATA_DIR, 128, 200)
-    get_train_test_dataset(TRAIN_DATA_DIR, TEST_DATA_DIR, 128, 1)
-    for data in cifar10_train_dataset.create_dict_iterator():
-        print(data.keys())
-        print(data)
-        break
-    # print(TRAIN_DATA_DIR)
-    # cifar10_train_dataset = get_train_dataset(TRAIN_DATA_DIR, 128, 200)
-    #
-    # def inverse_normal(data):
-    #     '''
-    #     Args:
-    #         data: np.ndarray
-    #     Returns:
-    #     '''
-    #     print(data.shape,type(data))
-    #     mean = [0.4914, 0.4822, 0.4465]
-    #     std = [0.2023, 0.1994, 0.2010]
-    #     for i in range(len(mean)): # 反标准化
-    #         data[i] = data[i] * std[i] + mean[i]
-    #     data = data * 255
-    #     data = data.astype(np.uint8)
-    #     data = np.transpose(data,(1,2,0)) # (ch,h,w) -> (h,w,ch)
-    #     return data
-    #
-    # def plot_img(data):
-    #     '''
-    #
-    #     Args:
-    #         data: np.ndarray
-    #
-    #     '''
-    #     data = Image.fromarray(data,mode='RGB')
-    #     print(data)
-    #     #data.show()
-    #     data.save('test.jpg')
-    #
-    #
-    # for data in cifar10_train_dataset.create_dict_iterator():
-    #     print(data['data1'].shape)
-    #     t=inverse_normal(data['data1'][0])
-    #     print(type(t),t)
-    #     plot_img(t)
-    #     #print(data['data2'])
-    #     #print(data['data3'])
-    #     print(data['label'])
-    #     break

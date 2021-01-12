@@ -10,10 +10,11 @@ import mindspore.dataset.engine as de
 
 from src.loss import LossNet
 from src.network_define import WithLossCell, TrainOneStepCell
-from src.config import get_config, save_config, get_logger, get_config_linear
+from src.config import get_config, save_config, get_logger
 from src.datasets import get_train_dataset, get_test_dataset, get_train_test_dataset
 from src.cifar_resnet import resnet18, resnet50, resnet101
 from src.knn_eval import KnnEval, FeatureCollectCell
+from src.optimizer import SGD_ as SGD
 
 random.seed(123)
 np.random.seed(123)
@@ -75,7 +76,10 @@ if __name__ == '__main__':
 
     net_with_loss = WithLossCell(resnet, loss)
 
-    net = TrainOneStepCell(net_with_loss, optimizer=None)
+    opt = SGD(params=net_with_loss.trainable_params(), learning_rate=0, momentum=config.momentum,
+              weight_decay=config.weight_decay, loss_scale=config.loss_scale)
+
+    net = TrainOneStepCell(net_with_loss, opt)
 
 
     model = Model(net, metrics={'knn_acc': KnnEval(batch_size=config.batch_size, device_num=1)},

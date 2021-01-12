@@ -3,6 +3,7 @@ from mindspore.ops import functional as F, composite as C, operations as P
 
 _sgd_opt = C.MultitypeFuncGraph("sgd_opt")
 
+
 @_sgd_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor")
 def _tensor_run_opt_ext(opt, momentum, learning_rate, gradient, weight, accum, stat):
     """Apply sgd optimizer to the weight parameter using Tensor."""
@@ -10,11 +11,12 @@ def _tensor_run_opt_ext(opt, momentum, learning_rate, gradient, weight, accum, s
     success = F.depend(success, opt(weight, gradient, learning_rate, accum, momentum, stat))
     return success
 
+
 class SGD_(SGD):
 
     def __init__(self, params, learning_rate=0.1, momentum=0.0, dampening=0.0, weight_decay=0.0, nesterov=False,
-                loss_scale=1.0):
-        super(SGD_,self).__init__(params, learning_rate, momentum, dampening, weight_decay, nesterov, loss_scale)
+                 loss_scale=1.0):
+        super(SGD_, self).__init__(params, learning_rate, momentum, dampening, weight_decay, nesterov, loss_scale)
         self.sm_scalar = P.ScalarSummary()
 
     def construct(self, gradients):

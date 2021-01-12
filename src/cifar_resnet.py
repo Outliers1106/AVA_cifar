@@ -19,11 +19,14 @@ from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.common.initializer import initializer
 import mindspore.common.dtype as mstype
+
+
 # from mindspore.ops import resolved_ops as RO
 
 def _weight_variable(shape):
     """weight_variable"""
     return initializer('HeUniform', shape=shape, dtype=mstype.float32)
+
 
 def _weight_variable_(shape, factor=0.01):
     init_value = np.random.randn(*shape).astype(np.float32) * factor
@@ -57,8 +60,8 @@ def _bn(channel, training=True):
                               gamma_init=1, beta_init=0, moving_mean_init=0, moving_var_init=1)
     else:
         return nn.BatchNorm2d(channel, eps=1e-4, momentum=0.9,
-                          gamma_init=1, beta_init=0, moving_mean_init=0, moving_var_init=1,use_batch_statistics=training)
-
+                              gamma_init=1, beta_init=0, moving_mean_init=0, moving_var_init=1,
+                              use_batch_statistics=training)
 
 
 def _bn_last(channel, training=True):
@@ -67,8 +70,8 @@ def _bn_last(channel, training=True):
                               gamma_init=1, beta_init=0, moving_mean_init=0, moving_var_init=1)
     else:
         return nn.BatchNorm2d(channel, eps=1e-4, momentum=0.9,
-                          gamma_init=0, beta_init=0, moving_mean_init=0, moving_var_init=1,use_batch_statistics=training)
-
+                              gamma_init=0, beta_init=0, moving_mean_init=0, moving_var_init=1,
+                              use_batch_statistics=training)
 
 
 def _fc(in_channel, out_channel):
@@ -107,7 +110,7 @@ class BasicBlock(nn.Cell):
 
         if self.down_sample:
             self.down_sample_layer = nn.SequentialCell([_conv1x1(in_channel, out_channel, stride),
-                                                        _bn(out_channel,training)])
+                                                        _bn(out_channel, training)])
         self.add = P.TensorAdd()
 
     def construct(self, x):
@@ -240,13 +243,12 @@ class ResNet(nn.Cell):
         self.use_MLP = use_MLP
         self.training_mode = training_mode
         self.concat = P.Concat()
-        self.split = P.Split(0,3)
+        self.split = P.Split(0, 3)
         self.l2norm = P.L2Normalize(axis=1)
 
         self.conv1 = _conv3x3(3, 64, stride=1)
         self.bn1 = _bn(64, training_mode)
         self.relu = nn.ReLU()
-        # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, pad_mode="same")
 
         self.layer1 = self._make_layer(block,
                                        layer_nums[0],
@@ -306,23 +308,15 @@ class ResNet(nn.Cell):
     def construct(self, x3, x2, x):
 
         x = self.concat((x3, x2, x))
-
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        #c1 = self.maxpool(x)
-        #print("c1 shape:",P.Shape()(c1))
         c2 = self.layer1(x)
-        #P.Print()("c2 shape:", ",".join(P.Shape()(c2)))
         c3 = self.layer2(c2)
-        #P.Print()("c3 shape:", ",".join(P.Shape()(c3)))
         c4 = self.layer3(c3)
-        #P.Print()("c4 shape:", ",".join(P.Shape()(c4)))
         c5 = self.layer4(c4)
-        #P.Print()("c5 shape:", ",".join(P.Shape()(c5)))
 
         out = self.mean(c5, (2, 3))
-        #P.Print()("out mean shape:", ",".join(P.Shape()(out)))
         out = self.flatten(out)
 
         if not self.training_mode:
@@ -335,152 +329,16 @@ class ResNet(nn.Cell):
             out = self.mlp_layer2(out)
         else:
             out = self.end_point(out)
-        #print("out end_point shape:", P.Shape()(out))
+
         out = self.l2norm(out)
 
         if self.training_mode:
-            out3,out2,out1 = self.split(out)
-            return out3,out2,out1
-        return out
-
-class ResNet_linear(nn.Cell):
-    """
-    ResNet architecture.
-
-    Args:
-        block (Cell): Block for network.
-        layer_nums (list): Numbers of block in different layers.
-        in_channels (list): Input channel in each layer.
-        out_channels (list): Output channel in each layer.
-        strides (list):  Stride size in each layer.
-        low_dims (int): The dimension of outputThe.
-    Returns:
-        Tensor, output tensor.
-
-    Examples:
-        >>> ResNet_linear(ResidualBlock,
-        >>>        [3, 4, 6, 3],
-        >>>        [64, 256, 512, 1024],
-        >>>        [256, 512, 1024, 2048],
-        >>>        [1, 2, 2, 2],
-        >>>        128)
-    """
-
-    def __init__(self,
-                 block,
-                 layer_nums,
-                 in_channels,
-                 out_channels,
-                 strides,
-                 low_dims,
-                 training_mode=True,
-                 use_MLP=False):
-        super(ResNet_linear, self).__init__()
-
-        if not len(layer_nums) == len(in_channels) == len(out_channels) == 4:
-            raise ValueError("the length of layer_num, in_channels, out_channels list must be 4!")
-
-        self.use_MLP = use_MLP
-        self.training_mode = training_mode
-        self.concat = P.Concat()
-        self.split = P.Split(0,3)
-        self.l2norm = P.L2Normalize(axis=1)
-
-        self.conv1 = _conv3x3(3, 64, stride=1)
-        self.bn1 = _bn(64, training_mode)
-        self.relu = nn.ReLU()
-        # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, pad_mode="same")
-
-        self.layer1 = self._make_layer(block,
-                                       layer_nums[0],
-                                       in_channel=in_channels[0],
-                                       out_channel=out_channels[0],
-                                       stride=strides[0])
-        self.layer2 = self._make_layer(block,
-                                       layer_nums[1],
-                                       in_channel=in_channels[1],
-                                       out_channel=out_channels[1],
-                                       stride=strides[1])
-        self.layer3 = self._make_layer(block,
-                                       layer_nums[2],
-                                       in_channel=in_channels[2],
-                                       out_channel=out_channels[2],
-                                       stride=strides[2])
-        self.layer4 = self._make_layer(block,
-                                       layer_nums[3],
-                                       in_channel=in_channels[3],
-                                       out_channel=out_channels[3],
-                                       stride=strides[3])
-
-        self.mean = P.ReduceMean(keep_dims=True)
-        self.flatten = nn.Flatten()
-        self.end_point = _fc(block.expansion * 512, low_dims)
-        self.mlp_layer1 = _fc(block.expansion * 512, block.expansion * 512)
-        self.mlp_layer2 = _fc(block.expansion * 512, low_dims)
-
-    def _make_layer(self, block, layer_num, in_channel, out_channel, stride):
-        """
-        Make stage network of ResNet.
-
-        Args:
-            block (Cell): Resnet block.
-            layer_num (int): Layer number.
-            in_channel (int): Input channel.
-            out_channel (int): Output channel.
-            stride (int): Stride size for the first convolutional layer.
-
-        Returns:
-            SequentialCell, the output layer.
-
-        Examples:
-            >>> _make_layer(ResidualBlock, 3, 128, 256, 2)
-        """
-        layers = []
-
-        resnet_block = block(in_channel, out_channel, stride=stride, training=self.training_mode)
-        layers.append(resnet_block)
-
-        for _ in range(1, layer_num):
-            resnet_block = block(out_channel, out_channel, stride=1, training=self.training_mode)
-            layers.append(resnet_block)
-
-        return nn.SequentialCell(layers)
-
-    def construct(self, x):
-
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        #c1 = self.maxpool(x)
-        #print("c1 shape:",P.Shape()(c1))
-        c2 = self.layer1(x)
-        #P.Print()("c2 shape:", ",".join(P.Shape()(c2)))
-        c3 = self.layer2(c2)
-        #P.Print()("c3 shape:", ",".join(P.Shape()(c3)))
-        c4 = self.layer3(c3)
-        #P.Print()("c4 shape:", ",".join(P.Shape()(c4)))
-        c5 = self.layer4(c4)
-        #P.Print()("c5 shape:", ",".join(P.Shape()(c5)))
-
-        out = self.mean(c5, (2, 3))
-        #P.Print()("out mean shape:", ",".join(P.Shape()(out)))
-        out = self.flatten(out)
-
-        if not self.training_mode:
-            out = self.l2norm(out)
-            return out
-
-        if self.use_MLP:
-            out = self.mlp_layer1(out)
-            out = self.mlp_layer2(out)
-        else:
-            out = self.end_point(out)
-        #print("out end_point shape:", P.Shape()(out))
-        out = self.l2norm(out)
+            out3, out2, out1 = self.split(out)
+            return out3, out2, out1
         return out
 
 
-def resnet50(low_dims=128,training_mode=True,use_MLP=False):
+def resnet50(low_dims=128, training_mode=True, use_MLP=False):
     """
     Get ResNet50 neural network.
 
@@ -502,30 +360,8 @@ def resnet50(low_dims=128,training_mode=True,use_MLP=False):
                   training_mode,
                   use_MLP)
 
-def resnet50_linear(low_dims=128,training_mode=True,use_MLP=False):
-    """
-    Get ResNet50 neural network.
 
-    Args:
-        class_num (int): Class number.
-
-    Returns:
-        Cell, cell instance of ResNet50 neural network.
-
-    Examples:
-        >>> net = resnet50(128)
-    """
-    return ResNet_linear(ResidualBlock,
-                  [3, 4, 6, 3],
-                  [64, 256, 512, 1024],
-                  [256, 512, 1024, 2048],
-                  [1, 2, 2, 2],
-                  low_dims,
-                  training_mode,
-                  use_MLP)
-
-
-def resnet101(low_dims=128,training_mode=True,use_MLP=False):
+def resnet101(low_dims=128, training_mode=True, use_MLP=False):
     """
     Get ResNet101 neural network.
 
@@ -547,35 +383,14 @@ def resnet101(low_dims=128,training_mode=True,use_MLP=False):
                   training_mode,
                   use_MLP)
 
-def resnet101_linear(low_dims=128,training_mode=True,use_MLP=False):
+
+def resnet18(low_dims=128, training_mode=True, use_MLP=False):
     """
-    Get ResNet101 neural network.
-
-    Args:
-        class_num (int): Class number.
-
+    Get ResNet18 neural network.
     Returns:
-        Cell, cell instance of ResNet101 neural network.
-
+        Cell, cell instance of ResNet18 neural network.
     Examples:
-        >>> net = resnet101(128)
-    """
-    return ResNet_linear(ResidualBlock,
-                  [3, 4, 23, 3],
-                  [64, 256, 512, 1024],
-                  [256, 512, 1024, 2048],
-                  [1, 2, 2, 2],
-                  low_dims,
-                  training_mode,
-                  use_MLP)
-
-def resnet18(low_dims=128,training_mode=True,use_MLP=False):
-    """
-        Get ResNet18 neural network.
-        Returns:
-            Cell, cell instance of ResNet18 neural network.
-        Examples:
-            >>> net = resnet18(128)
+        >>> net = resnet18(128)
     """
     return ResNet(BasicBlock,
                   [2, 2, 2, 2],
@@ -585,52 +400,3 @@ def resnet18(low_dims=128,training_mode=True,use_MLP=False):
                   low_dims,
                   training_mode,
                   use_MLP)
-
-
-def resnet18_linear(low_dims=128,training_mode=True,use_MLP=False):
-    """
-        Get ResNet18 neural network.
-
-        Returns:
-            Cell, cell instance of ResNet18 neural network.
-
-        Examples:
-            >>> net = resnet18(128)
-    """
-    return ResNet_linear(BasicBlock,
-                  [2, 2, 2, 2],
-                  [64, 64, 128, 256],
-                  [64, 128, 256, 512],
-                  [1, 2, 2, 2],
-                  low_dims,
-                  training_mode,
-                  use_MLP)
-
-
-if __name__ == "__main__":
-    input3 = Tensor(np.random.randn(10,3,32,32).astype(np.float32))
-    input2 = Tensor(np.random.randn(10, 3, 32, 32).astype(np.float32))
-    input1 = Tensor(np.random.randn(10, 3, 32, 32).astype(np.float32))
-
-    # model = resnet50(128,training_mode=True)
-    # print('------------------------------------------------------------------------------')
-    # print('---------------------Resnet50分割线------------------------')
-    # print('------------------------------------------------------------------------------')
-    # #input3 = np.random.rand()
-    # print(model)
-    # model = resnet101(128)
-    # print('------------------------------------------------------------------------------')
-    # print('---------------------resnet101分割线------------------------')
-    # print('------------------------------------------------------------------------------')
-    # print(model)
-    model = resnet50(128)
-    for k,v in model.parameters_and_names():
-        print("key:",k)
-        print("value:",v)
-
-    print('------------------------------------------------------------------------------')
-    print('---------------------resnet18分割线------------------------')
-    print('------------------------------------------------------------------------------')
-    print(model)
-    res=model(input3,input2,input1)
-    print(res)

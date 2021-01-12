@@ -1,16 +1,7 @@
-import time
 import math
 import numpy as np
 import mindspore.nn as nn
-import mindspore
-from mindspore.common.tensor import Tensor
-from mindspore.ops import functional as F
-from mindspore.ops import composite as C
 from mindspore.ops import operations as P
-from mindspore import ParameterTuple
-from mindspore.train.callback import Callback
-from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
-from mindspore.common import dtype as mstype
 
 
 class KnnEval(nn.Metric):
@@ -37,8 +28,6 @@ class KnnEval(nn.Metric):
         self.test_features = np.zeros(shape=(self.test_data_size, self.feature_dim), dtype=np.float32)
         self.train_labels = np.zeros(shape=(self.train_data_size,), dtype=np.int32)
         self.test_labels = np.zeros(shape=(self.test_data_size,), dtype=np.int32)
-        # self.train_features = Tensor(np.zeros(shape=(self.train_data_size, self.feature_dim)),mindspore.float32)
-        # self.test_features = Tensor(np.zeros(shape=(self.test_data_size, self.feature_dim)),mindspore.float32)
         self._total_num = 0
         self._total_num_train = 0
         self._total_num_test = 0
@@ -47,25 +36,17 @@ class KnnEval(nn.Metric):
         feature = inputs[0].asnumpy()
         label = inputs[1].asnumpy()
         training = inputs[2].asnumpy()
-        # training = Tensor(training, mindspore.float32)  # for ReduceSum, float32 is valid
-        # print(label)
         batch_size = label.shape[0]
-        # print(training)
-        # print("sum training", training.sum())
-        # if self.sum(training) == Tensor(batch_size, mindspore.float32):
         if training.sum() == batch_size:
-            # print("total_num_train",self._total_num_train,"total_num_train + batch_size * self.device_num",self._total_num_train + batch_size * self.device_num)
             self.train_features[self._total_num_train:self._total_num_train + batch_size * self.device_num] = feature
             self.train_labels[self._total_num_train:self._total_num_train + batch_size * self.device_num] = label
             self._total_num_train += batch_size * self.device_num
 
         elif training.sum() == 0:
-            # print("all testing!")
             self.test_features[self._total_num_test:self._total_num_test + batch_size * self.device_num] = feature
             self.test_labels[self._total_num_test:self._total_num_test + batch_size * self.device_num] = label
             self._total_num_test += batch_size * self.device_num
         else:
-            # print("both training and testing!")
             for i in range(len(training)):
                 if training[i] == 1:
                     self.train_features[self._total_num_train] = feature[i]
@@ -112,8 +93,6 @@ class KnnEval(nn.Metric):
         a[expanded_index] = b
 
     def eval(self):
-        # print("total_num:", self._total_num, "total_num_train:", self._total_num_train, "total_num_test:",
-        #       self._total_num_test)
         top1 = 0
         top5 = 0
         for batch_idx in range(math.ceil(len(self.test_labels) / self.batch_size)):
@@ -129,35 +108,23 @@ class KnnEval(nn.Metric):
             dist = np.dot(test_features, self.train_features.T)
 
             yd, yi = self.topk(dist, K=self.K, axis=1)
-            #print("yd shape:", yd.shape, "yi shape:", yi.shape)
             candidates = self.train_labels.reshape(1, -1).repeat(len(test_labels), 0)  # correct
-            #print("candidates type:", candidates.dtype)
-            # print("candidates shape:", candidates.shape)
-
             retrieval = self.gather(candidates, dim=1, index=yi)
             retrieval = retrieval.astype(np.int32)
-            #print("retrieval shape:", retrieval.shape)
-            # print("retrieval", retrieval)
-            # print("type retrieval", type(retrieval[0][0]))
             retrieval_one_hot = np.zeros([len(test_labels) * self.K, self.C])
-            #print("retrieval_one_hot shape:", retrieval_one_hot.shape)
             self.scatter(retrieval_one_hot, 1, retrieval.reshape(-1, 1), 1)
 
             yd_transform = np.exp(yd / self.sigma)
             probs = np.sum(
                 retrieval_one_hot.reshape(len(test_labels), -1, self.C) * yd_transform.reshape(len(test_labels),
-                                                                                                    -1, 1), 1)
-            # print("probs:", probs)
+                                                                                               -1, 1), 1)
             predictions = np.argsort(-probs, 1)
-            # print("predictions:",predictions)
             correct = predictions == test_labels.reshape(-1, 1)
-            # print("correct",correct)
             top1 += np.sum(correct[:, 0:1])
             top5 += np.sum(correct[:, 0:5])
-            # print("top1 num:{},top5 num:{}".format(top1,top5))
         top1 = top1 / len(self.test_labels)
         top5 = top5 / len(self.test_labels)
-        print("top1:", top1, "top5", top5)
+        print("top1 acc:{}, top5 acc:{}".format(top1, top5))
         return top1
 
 
