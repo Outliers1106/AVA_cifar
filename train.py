@@ -3,7 +3,6 @@ import argparse
 import random
 import numpy as np
 import time
-import logging
 
 import mindspore.common.dtype as mstype
 from mindspore import context, Tensor
@@ -11,11 +10,9 @@ from mindspore.communication.management import init
 from mindspore.train.callback import CheckpointConfig
 from mindspore.train import Model
 from mindspore.context import ParallelMode
-from mindspore.train.serialization import load_checkpoint, load_param_into_net
-# from mindspore.nn import SGD
+
 from src.optimizer import SGD_ as SGD
 import mindspore.dataset.engine as de
-from mindspore.train.callback import SummaryCollector
 
 from src.config import get_config, save_config, get_logger
 from src.datasets import get_train_dataset, get_test_dataset, get_train_test_dataset
@@ -31,19 +28,14 @@ np.random.seed(123)
 de.config.set_seed(123)
 
 parser = argparse.ArgumentParser(description="AVA training")
-parser.add_argument("--use_moxing", type=bool, default=False, help="whether use moxing for huawei cloud.")
-parser.add_argument("--data_url", type=str, default='', help="huawei cloud ModelArts need it.")
-parser.add_argument("--train_url", type=str, default='', help="huawei cloud ModelArts need it.")
-parser.add_argument("--src_url", type=str, default='obs://tuyanlun/data/cifar10', help="huawei cloud ModelArts need it.")
-parser.add_argument("--dst_url", type=str, default='/cache/data', help="huawei cloud ModelArts need it.")
 parser.add_argument("--run_distribute", type=bool, default=False, help="Run distribute, default is false.")
-parser.add_argument("--do_train", type=bool, default=True, help="Do train or not, default is true.")
-parser.add_argument("--do_eval", type=bool, default=False, help="Do eval or not, default is false.")
-parser.add_argument("--pre_trained", type=str, default="", help="Pretrain file path.")
 parser.add_argument("--device_id", type=int, default=5, help="Device id, default is 0.")
 parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default is 1.")
 parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default is 0.")
-#parser.add_argument("--mindspore_version", type=float, default=0.6, help="Mindspore version default 0.6.")
+parser.add_argument("--train_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train", help="training dataset directory")
+parser.add_argument("--test_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/test", help="testing dataset directory")
+parser.add_argument("--save_checkpoint_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/", help="path to save checkpoint")
+parser.add_argument("--log_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/", help="path to save log file")
 args_opt = parser.parse_args()
 
 
@@ -51,24 +43,15 @@ args_opt = parser.parse_args()
 if __name__ == '__main__':
     config = get_config()
     temp_path = ''
-    if args_opt.use_moxing:
-        device_id = int(os.getenv('DEVICE_ID'))
-        device_num = int(os.getenv('RANK_SIZE'))
-        print("get path mapping with huawei cloud...")
-        import moxing as mox
 
-        temp_path = args_opt.dst_url
-    else:
-        print("do not use moxing for huawei cloud...")
-        device_id = args_opt.device_id
-        device_num = args_opt.device_num
+    device_id = args_opt.device_id
+    device_num = args_opt.device_num
+    print("device num:{}".format(device_num))
+    print("device id:{}".format(device_id))
 
     # context.set_context(mode=context.PYNATIVE_MODE, device_target="Ascend")
     context.set_context(mode=context.GRAPH_MODE, device_target="Ascend")
     context.set_context(device_id=device_id)
-    
-    print("device num:{}".format(device_num))
-    print("device id:{}".format(device_id))
 
     if device_num > 1:
         context.set_auto_parallel_context(device_num=device_num, parallel_mode=ParallelMode.DATA_PARALLEL,
@@ -77,31 +60,20 @@ if __name__ == '__main__':
         temp_path = os.path.join(temp_path, str(device_id))
         print("temp path with multi-device:{}".format(temp_path))
 
-    if args_opt.use_moxing:
-        mox.file.shift('os', 'mox')
-        print("data url:{}".format(args_opt.data_url))
-        mox.file.copy_parallel(src_url=args_opt.data_url, dst_url=temp_path)
+    save_checkpoint_path = os.path.join(args_opt.save_checkpoint_path, config.prefix + "/checkpoint" + config.time_prefix)
+    save_checkpoint_path = os.path.join(temp_path, save_checkpoint_path)
+    log_path = os.path.join(args_opt.log_path, config.prefix)
+    log_path = os.path.join(temp_path, args_opt.log_path)
 
-        checkpoint_dir = os.path.join(temp_path, config.moxing_save_checkpoint_path)
-        summary_dir = os.path.join(temp_path, config.moxing_summary_path)
-        train_data_dir = os.path.join(temp_path, config.moxing_train_data_dir)
-        test_data_dir = os.path.join(temp_path, config.moxing_test_data_dir)
-        log_dir = os.path.join(temp_path, config.moxing_log_dir)
-    else:
-        checkpoint_dir = os.path.join(temp_path, config.save_checkpoint_path)
-        summary_dir = os.path.join(temp_path, config.summary_path)
-        train_data_dir = os.path.join(temp_path, config.train_data_dir)
-        test_data_dir = os.path.join(temp_path, config.test_data_dir)
-        log_dir = os.path.join(temp_path, config.log_dir)
+    train_data_dir = os.path.join(temp_path, args_opt.train_data_dir)
+    test_data_dir = os.path.join(temp_path, args_opt.test_data_dir)
 
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir)
-    if not os.path.exists(summary_dir):
-        os.makedirs(summary_dir)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    if not os.path.exists(save_checkpoint_path):
+        os.makedirs(save_checkpoint_path)
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
 
-    logger = get_logger(os.path.join(log_dir, 'log' + config.time_prefix + '.log'))
+    logger = get_logger(os.path.join(log_path, 'log' + config.time_prefix + '.log'))
 
     print("start create dataset...")
 
@@ -127,9 +99,6 @@ if __name__ == '__main__':
         resnet = resnet101(low_dims=config.low_dims, training_mode=True, use_MLP=config.use_MLP)
     else:
         raise ("net work config error!!!")
-
-    # logger.info(resnet)
-    # eval_network = FeatureCollectCell(resnet)
 
     loss = LossNet(temp=config.sigma)
 
@@ -166,29 +135,24 @@ if __name__ == '__main__':
     eval_network = FeatureCollectCell(resnet)
 
     loss_cb = LossCallBack(data_size=train_dataset_batch_num)
-    # summary_collector = SummaryCollector(summary_dir=summary_dir, collect_freq=1)
-    # cb = [loss_cb, summary_collector]
+
     cb = [loss_cb]
 
     if config.save_checkpoint:
         ckptconfig = CheckpointConfig(keep_checkpoint_max=config.keep_checkpoint_max)
         ckpoint_cb = ModelCheckpoint_(prefix='AVA',
-                                      directory=checkpoint_dir,
+                                      directory=save_checkpoint_path,
                                       config=ckptconfig)
         cb += [ckpoint_cb]
 
-    # model = Model(net,metrics={'knn_acc':KnnEval(batch_size=config.batch_size,device_num=1)},eval_network=eval_network)
     model = Model(net, metrics={'knn_acc': KnnEval(batch_size=config.batch_size, device_num=1)},
                   eval_network=eval_network)
 
-    # model.init(train_dataset, eval_dataset)
-    # model =Model(net)
-
     logger.info("save configs...")
     print("save configs...")
-    # save current config
+    # save current config file
     config_name = 'config.json'
-    save_config([os.path.join(checkpoint_dir, config_name)], config)
+    save_config([os.path.join(save_checkpoint_path, config_name)], config, vars(args_opt))
 
     logger.info("training begins...")
     print("training begins...")
@@ -222,9 +186,3 @@ if __name__ == '__main__':
                     " training loss {}, knn_acc {}, "
                     "training per step cost {:.2f} s, eval cost {:.2f} s, total_cost {:.2f} s".format(
             epoch_idx, loss, knn_acc, time_cost, eval_cost, time_cost * train_dataset_batch_num + eval_cost))
-
-    if args_opt.use_moxing:
-        print("download file to obs...")
-        mox.file.copy_parallel(src_url=os.path.join(temp_path, config.prefix),
-                               dst_url=os.path.join(config.moxing_model_save_path, config.prefix))
-
