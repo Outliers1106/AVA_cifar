@@ -35,12 +35,11 @@ def get_config():
 
         # trainer
         "batch_size": 128,
-        "epochs": 200,
-        "epoch_stage": [120, 80],
+        "epochs": 1000,
+        "epoch_stage": [600, 400],
         "lr_schedule": "cosine_lr",
         "lr_mode": "epoch",
         "warmup_epoch": 0,
-        "eval_pause": 1000
     })
     return config
 

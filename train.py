@@ -21,7 +21,6 @@ from src.network_define import WithLossCell, TrainOneStepCell
 from src.callbacks import LossCallBack
 from src.loss import LossNet
 from src.lr_schedule import step_cosine_lr, cosine_lr
-from src.knn_eval import KnnEval, FeatureCollectCell
 
 random.seed(123)
 np.random.seed(123)
@@ -86,12 +85,7 @@ if __name__ == '__main__':
                                       epoch=1, device_id=device_id, device_num=device_num)
     train_dataset.__loop_size__ = 1
 
-    # eval_dataset contains train dataset and test dataset, which is used for knn eval
-    eval_dataset = get_train_test_dataset(train_data_dir=train_data_dir, test_data_dir=test_data_dir,
-                                          batchsize=100, epoch=1)
-
     train_dataset_batch_num = int(train_dataset.get_dataset_size())
-    eval_dataset_batch_num = int(eval_dataset.get_dataset_size())
 
     print("the chosen network is {}".format(config.net_work))
     logger.info("the chosen network is {}".format(config.net_work))
@@ -109,7 +103,6 @@ if __name__ == '__main__':
 
     net_with_loss = WithLossCell(resnet, loss)
 
-    # eval_network = FeatureCollectCell(net_with_loss)
     if config.lr_schedule == "cosine_lr":
         lr = Tensor(cosine_lr(
             init_lr=config.base_lr,
@@ -136,8 +129,6 @@ if __name__ == '__main__':
                                mean=True, degree=device_num)
     else:
         net = TrainOneStepCell(net_with_loss, opt)
-
-    eval_network = FeatureCollectCell(resnet)
 
     loss_cb = LossCallBack(data_size=train_dataset_batch_num, logger=logger)
 
