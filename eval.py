@@ -14,7 +14,6 @@ from src.config import get_config, save_config, get_logger
 from src.datasets import get_train_dataset, get_test_dataset, get_train_test_dataset
 from src.cifar_resnet import resnet18, resnet50, resnet101
 from src.knn_eval import KnnEval, FeatureCollectCell
-from src.optimizer import SGD_ as SGD
 
 random.seed(123)
 np.random.seed(123)
@@ -23,7 +22,7 @@ de.config.set_seed(123)
 parser = argparse.ArgumentParser(description="AVA linear evaluation")
 parser.add_argument("--run_distribute", type=bool, default=False, help="Run distribute, default is false.")
 parser.add_argument("--pre_trained", type=str, default="", help="Pretrain file path.")
-parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
+parser.add_argument("--device_id", type=int, default=6, help="Device id, default is 0.")
 parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default is 1.")
 parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default is 0.")
 parser.add_argument("--train_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train", help="training dataset directory")
@@ -76,10 +75,7 @@ if __name__ == '__main__':
 
     net_with_loss = WithLossCell(resnet, loss)
 
-    opt = SGD(params=net_with_loss.trainable_params(), learning_rate=0, momentum=config.momentum,
-              weight_decay=config.weight_decay, loss_scale=config.loss_scale)
-
-    net = TrainOneStepCell(net_with_loss, opt)
+    net = TrainOneStepCell(net_with_loss, optimizer=None)
 
 
     model = Model(net, metrics={'knn_acc': KnnEval(batch_size=config.batch_size, device_num=1)},
