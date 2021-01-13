@@ -7,7 +7,7 @@ import time
 import mindspore.common.dtype as mstype
 from mindspore import context, Tensor
 from mindspore.communication.management import init
-from mindspore.train.callback import CheckpointConfig
+from mindspore.train.callback import CheckpointConfig, ModelCheckpoint
 from mindspore.train import Model
 from mindspore.context import ParallelMode
 
@@ -18,9 +18,9 @@ from src.config import get_config, save_config, get_logger
 from src.datasets import get_train_dataset, get_test_dataset, get_train_test_dataset
 from src.cifar_resnet import resnet18, resnet50, resnet101
 from src.network_define import WithLossCell, TrainOneStepCell
-from src.callbacks import LossCallBack, ModelCheckpoint_
+from src.callbacks import LossCallBack
 from src.loss import LossNet
-from src.lr_schedule import step_cosine_lr,cosine_lr
+from src.lr_schedule import step_cosine_lr, cosine_lr
 from src.knn_eval import KnnEval, FeatureCollectCell
 
 random.seed(123)
@@ -29,16 +29,20 @@ de.config.set_seed(123)
 
 parser = argparse.ArgumentParser(description="AVA training")
 parser.add_argument("--run_distribute", type=bool, default=False, help="Run distribute, default is false.")
-parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
+parser.add_argument("--device_id", type=int, default=5, help="Device id, default is 0.")
 parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default is 1.")
 parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default is 0.")
-parser.add_argument("--train_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train", help="training dataset directory")
-parser.add_argument("--test_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/test", help="testing dataset directory")
-parser.add_argument("--save_checkpoint_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/", help="path to save checkpoint")
-parser.add_argument("--log_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/", help="path to save log file")
+parser.add_argument("--train_data_dir", type=str,
+                    default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train",
+                    help="training dataset directory")
+parser.add_argument("--test_data_dir", type=str,
+                    default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/test",
+                    help="testing dataset directory")
+parser.add_argument("--save_checkpoint_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/",
+                    help="path to save checkpoint")
+parser.add_argument("--log_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/",
+                    help="path to save log file")
 args_opt = parser.parse_args()
-
-
 
 if __name__ == '__main__':
     config = get_config()
@@ -60,11 +64,12 @@ if __name__ == '__main__':
         temp_path = os.path.join(temp_path, str(device_id))
         print("temp path with multi-device:{}".format(temp_path))
 
-    save_checkpoint_path = os.path.join(args_opt.save_checkpoint_path, config.prefix + "/checkpoint" + config.time_prefix)
+    save_checkpoint_path = os.path.join(args_opt.save_checkpoint_path,
+                                        config.prefix + "/checkpoint" + config.time_prefix)
     save_checkpoint_path = os.path.join(temp_path, save_checkpoint_path)
     log_path = os.path.join(args_opt.log_path, config.prefix)
-    log_path = os.path.join(temp_path, args_opt.log_path)
-
+    log_path = os.path.join(temp_path, log_path)
+    print(log_path)
     train_data_dir = os.path.join(temp_path, args_opt.train_data_dir)
     test_data_dir = os.path.join(temp_path, args_opt.test_data_dir)
 
@@ -134,55 +139,27 @@ if __name__ == '__main__':
 
     eval_network = FeatureCollectCell(resnet)
 
-    loss_cb = LossCallBack(data_size=train_dataset_batch_num)
+    loss_cb = LossCallBack(data_size=train_dataset_batch_num, logger=logger)
 
     cb = [loss_cb]
 
     if config.save_checkpoint:
-        ckptconfig = CheckpointConfig(keep_checkpoint_max=config.keep_checkpoint_max)
-        ckpoint_cb = ModelCheckpoint_(prefix='AVA',
-                                      directory=save_checkpoint_path,
-                                      config=ckptconfig)
+        ckptconfig = CheckpointConfig(save_checkpoint_steps=train_dataset_batch_num,
+                                      keep_checkpoint_max=config.keep_checkpoint_max)
+        ckpoint_cb = ModelCheckpoint(prefix='AVA',
+                                     directory=save_checkpoint_path,
+                                     config=ckptconfig)
         cb += [ckpoint_cb]
 
-    model = Model(net, metrics={'knn_acc': KnnEval(batch_size=config.batch_size, device_num=1)},
-                  eval_network=eval_network)
+    model = Model(net)
 
-    logger.info("save configs...")
     print("save configs...")
     # save current config file
     config_name = 'config.json'
     save_config([os.path.join(save_checkpoint_path, config_name)], config, vars(args_opt))
 
-    logger.info("training begins...")
     print("training begins...")
 
-    logger.info("model description:{}".format(config.description))
     print("model description:{}".format(config.description))
-    best_acc = 0
-    for epoch_idx in range(1, config.epochs + 1):
-        model.train(1, train_dataset, callbacks=cb, dataset_sink_mode=True)
-        eval_start = time.time()
-        if epoch_idx % config.eval_pause == 0 or epoch_idx == 1 or epoch_idx >= config.epochs - 10:
-            output = model.eval(eval_dataset)
-            knn_acc = float(output["knn_acc"])
-        else:
-            knn_acc = 0
-        ckpoint_cb.set_epoch(epoch_idx)
-        ckpoint_cb.set_force_to_save(False)
-        if knn_acc > best_acc:
-            best_acc = knn_acc
-            ckpoint_cb.set_force_to_save(True)
-            ckpoint_cb.set_acc(best_acc)
 
-        eval_cost = time.time() - eval_start
-        time_cost = loss_cb.get_per_step_time()
-        loss = loss_cb.get_loss()
-        print("the {} epoch's resnet result: "
-              " training loss {}, knn_acc {}, "
-              "training per step cost {:.2f} s, eval cost {:.2f} s, total_cost {:.2f} s".format(
-            epoch_idx, loss, knn_acc, time_cost, eval_cost, time_cost * train_dataset_batch_num + eval_cost))
-        logger.info("the {} epoch's resnet result: "
-                    " training loss {}, knn_acc {}, "
-                    "training per step cost {:.2f} s, eval cost {:.2f} s, total_cost {:.2f} s".format(
-            epoch_idx, loss, knn_acc, time_cost, eval_cost, time_cost * train_dataset_batch_num + eval_cost))
+    model.train(config.epochs, train_dataset, callbacks=cb, dataset_sink_mode=True)
