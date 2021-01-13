@@ -305,9 +305,9 @@ class ResNet(nn.Cell):
 
         return nn.SequentialCell(layers)
 
-    def construct(self, x3, x2, x):
+    def construct(self, x3, x2, x1):
 
-        x = self.concat((x3, x2, x))
+        x = self.concat((x3, x2, x1))
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -332,10 +332,8 @@ class ResNet(nn.Cell):
 
         out = self.l2norm(out)
 
-        if self.training_mode:
-            out3, out2, out1 = self.split(out)
-            return out3, out2, out1
-        return out
+        out3, out2, out1 = self.split(out)
+        return out3, out2, out1
 
 
 def resnet50(low_dims=128, training_mode=True, use_MLP=False):
