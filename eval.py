@@ -19,17 +19,16 @@ random.seed(123)
 np.random.seed(123)
 de.config.set_seed(123)
 
-parser = argparse.ArgumentParser(description="AVA linear evaluation")
+parser = argparse.ArgumentParser(description="AVA evaluation")
 parser.add_argument("--run_distribute", type=bool, default=False, help="Run distribute, default is false.")
-parser.add_argument("--pre_trained", type=str, default="", help="Pretrain file path.")
-parser.add_argument("--device_id", type=int, default=6, help="Device id, default is 0.")
+parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
 parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default is 1.")
-parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default is 0.")
-parser.add_argument("--train_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train", help="training dataset directory")
-parser.add_argument("--test_data_dir", type=str, default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/test", help="testing dataset directory")
-parser.add_argument("--log_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/", help="path to save log file")
-parser.add_argument("--load_ckpt_path", type=str, default="/home/tuyanlun/code/ms_r0.6/project/AVA-cifar10-resnet50/test-resnet50-1000/AVA-994_0.9191_391.ckpt", help="path to load pretrain model checkpoint")
-parser.add_argument("--network", type=str, default="resnet50", help="network architecture: (resnet18, resnet50, resnet101)")
+parser.add_argument("--device_target", type=str, default="Ascend", help="Device target")
+parser.add_argument("--train_data_dir", type=str, default="", help="training dataset directory")
+parser.add_argument("--test_data_dir", type=str, default="", help="testing dataset directory")
+parser.add_argument("--log_path", type=str, default="", help="path to save log file")
+parser.add_argument("--load_ckpt_path", type=str, default="", help="path to load pretrain model checkpoint")
+parser.add_argument("--network", type=str, default="resnet18", help="network architecture: (resnet18, resnet50, resnet101)")
 args_opt = parser.parse_args()
 
 if __name__ == '__main__':
@@ -42,8 +41,9 @@ if __name__ == '__main__':
     print("device id:{}".format(device_id))
 
     # context.set_context(mode=context.PYNATIVE_MODE, device_target="Ascend")
-    context.set_context(mode=context.GRAPH_MODE, device_target="Ascend")
-    context.set_context(device_id=device_id)
+    context.set_context(mode=context.GRAPH_MODE, device_target=args_opt.device_target)
+    if args_opt.device_target == "Ascend":
+        context.set_context(device_id=device_id)
 
     train_data_dir = os.path.join(temp_path, args_opt.train_data_dir)
     test_data_dir = os.path.join(temp_path, args_opt.test_data_dir)

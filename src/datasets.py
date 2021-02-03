@@ -11,7 +11,7 @@ import numpy as np
 
 class CIFAR10Dataset():
     def __init__(self, data_dir, training=True, use_third_trsfm=False, use_auto_augment=False, num_parallel_workers=8,
-                 device_num=1, device_id="0"):
+                 device_num=1, device_id=0):
 
         if not training:
             trsfm = Compose([
@@ -99,7 +99,7 @@ def makeup_test_dataset(ds_test, batchsize, epoch=1):
     return ds_test
 
 
-def get_train_dataset(train_data_dir, batchsize, epoch, mode="training", device_num=1, device_id="0"):
+def get_train_dataset(train_data_dir, batchsize, epoch, mode="training", device_num=1, device_id=0):
     if mode == "linear_eval":
         cifar10_train = CIFAR10Dataset(data_dir=train_data_dir, training=False, use_third_trsfm=False)
         cifar10_train = cifar10_train.get_dataset()

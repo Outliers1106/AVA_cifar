@@ -28,19 +28,13 @@ de.config.set_seed(123)
 
 parser = argparse.ArgumentParser(description="AVA training")
 parser.add_argument("--run_distribute", type=bool, default=False, help="Run distribute, default is false.")
-parser.add_argument("--device_id", type=int, default=5, help="Device id, default is 0.")
+parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
 parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default is 1.")
-parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default is 0.")
-parser.add_argument("--train_data_dir", type=str,
-                    default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/train",
-                    help="training dataset directory")
-parser.add_argument("--test_data_dir", type=str,
-                    default="/home/tuyanlun/code/ms_r0.5/project/cifar-10-batches-bin/test",
-                    help="testing dataset directory")
-parser.add_argument("--save_checkpoint_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/",
-                    help="path to save checkpoint")
-parser.add_argument("--log_path", type=str, default="/home/tuyanlun/code/mindspore_r1.0/cifar/",
-                    help="path to save log file")
+parser.add_argument("--device_target", type=str, default="Ascend", help="Device target")
+parser.add_argument("--train_data_dir", type=str, default="", help="training dataset directory")
+parser.add_argument("--test_data_dir", type=str, default="", help="testing dataset directory")
+parser.add_argument("--save_checkpoint_path", type=str, default="", help="path to save checkpoint")
+parser.add_argument("--log_path", type=str, default="", help="path to save log file")
 args_opt = parser.parse_args()
 
 if __name__ == '__main__':
@@ -53,8 +47,9 @@ if __name__ == '__main__':
     print("device id:{}".format(device_id))
 
     # context.set_context(mode=context.PYNATIVE_MODE, device_target="Ascend")
-    context.set_context(mode=context.GRAPH_MODE, device_target="Ascend")
-    context.set_context(device_id=device_id)
+    context.set_context(mode=context.GRAPH_MODE, device_target=args_opt.device_target)
+    if args_opt.device_target == "Ascend":
+        context.set_context(device_id=device_id)
 
     if device_num > 1:
         context.set_auto_parallel_context(device_num=device_num, parallel_mode=ParallelMode.DATA_PARALLEL,
@@ -152,5 +147,5 @@ if __name__ == '__main__':
     print("training begins...")
 
     print("model description:{}".format(config.description))
-
-    model.train(config.epochs, train_dataset, callbacks=cb, dataset_sink_mode=True)
+    dataset_sink_mode = True if args_opt.device_target == "Ascend" else False
+    model.train(config.epochs, train_dataset, callbacks=cb, dataset_sink_mode=dataset_sink_mode)
