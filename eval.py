@@ -26,7 +26,6 @@ parser.add_argument("--device_num", type=int, default=1, help="Use device nums, 
 parser.add_argument("--device_target", type=str, default="Ascend", help="Device target")
 parser.add_argument("--train_data_dir", type=str, default="", help="training dataset directory")
 parser.add_argument("--test_data_dir", type=str, default="", help="testing dataset directory")
-parser.add_argument("--log_path", type=str, default="", help="path to save log file")
 parser.add_argument("--load_ckpt_path", type=str, default="", help="path to load pretrain model checkpoint")
 parser.add_argument("--network", type=str, default="resnet18", help="network architecture: (resnet18, resnet50, resnet101)")
 args_opt = parser.parse_args()
